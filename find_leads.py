@@ -13,6 +13,7 @@ import os
 import time
 import requests
 import csv
+import webbrowser
 
 API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY")
 if not API_KEY:
@@ -99,6 +100,14 @@ def main():
     print(f"\nKlart! {len(leads)} företag sparade i {filename}")
     utan_hemsida = sum(1 for l in leads if l["Hemsida"] == "SAKNAS")
     print(f"Varav {utan_hemsida} saknar hemsida helt (troliga 5:or).")
+
+    # Öppna dashboarden i webbläsaren så att CSV:n kan laddas upp direkt
+    dashboard = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lead-dashboard.html")
+    if os.path.exists(dashboard):
+        webbrowser.open("file://" + dashboard)
+        print(f"Dashboard öppnad i webbläsaren - ladda upp {filename} där.")
+    else:
+        print("Hittade inte lead-dashboard.html - hoppar över att öppna dashboarden.")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jompas dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --green-50: #EAF3DE;
+    --green-400: #639922;
+    --green-600: #3B6D11;
+    --green-800: #27500A;
+    --blue-400: #378ADD;
+    --star-fill: #BA7517;
+    --bg: #FAFAF7;
+    --card: #FFFFFF;
+    --border: #E4E2D8;
+    --text: #1F1E1A;
+    --text-muted: #6B6A63;
+  }
+  [data-mode="dark"] {
+    --bg: #000000;
+    --card: #111111;
+    --border: #262626;
+    --text: #F2F2F2;
+    --text-muted: #9A9A9A;
+    --star-fill: #E0A94C;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem 1.5rem 4rem;
+    transition: background .15s, color .15s;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .top-left { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, var(--green-600), var(--green-400));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  [data-mode="dark"] h1 {
+    background: linear-gradient(90deg, #9FE05A, #4FB84A);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+  .nav-link {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--green-600);
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  [data-mode="dark"] .nav-link { color: #7BD34A; }
+  .nav-link:hover { text-decoration: underline; }
+  .sub { color: var(--text-muted); font-size: 14px; margin: 6px 0 1.75rem; }
+
+  .mode-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px;
+    background: var(--card);
+  }
+  .mode-toggle button {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 14px;
+    border-radius: 16px;
+    cursor: pointer;
+  }
+  .mode-toggle button.active {
+    background: var(--green-600);
+    color: white;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .drop {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    background: var(--card);
+    transition: border-color .15s;
+  }
+  .drop:hover { border-color: var(--green-400); color: var(--text); }
+  input[type=file] { display: none; }
+  input[type=text], input[type=number], input[type=time], input[type=date], select, textarea {
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    padding: 0 12px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  textarea { height: auto; padding: 8px 12px; resize: vertical; }
+  input[type=text] { min-width: 200px; flex: 1; }
+  .clear-btn {
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    padding: 0 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .clear-btn:hover { color: var(--text); border-color: var(--text-muted); }
+  .primary-btn {
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: var(--green-600);
+    color: white;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .stat .n { font-size: 22px; font-weight: 600; }
+  .stat .l { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .rank-breakdown {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 1.5rem;
+  }
+  .rank-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .rank-card .stars { font-size: 13px; color: var(--star-fill); margin-bottom: 4px; }
+  .rank-card .count { font-size: 20px; font-weight: 600; }
+  .rank-card .bar-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .rank-card .bar-fill {
+    height: 100%;
+    background: var(--green-400);
+    border-radius: 3px;
+  }
+
+  .quota-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .quota-info { flex: 1; min-width: 200px; }
+  .quota-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .quota-numbers { font-size: 15px; font-weight: 600; }
+  .quota-track {
+    height: 8px;
+    background: var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .quota-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width .2s, background .2s;
+  }
+  .quota-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .quota-edit input { width: 90px; }
+
+  .header-row {
+    display: grid;
+    grid-template-columns: 2.2fr 1.1fr 1.3fr 0.9fr 1fr 1fr;
+    gap: 12px;
+    padding: 0 16px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--text-muted);
+  }
+
+  .lead-list {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .lead-row {
+    display: grid;
+    grid-template-columns: 2.2fr 1.1fr 1.3fr 0.9fr 1fr 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .lead-row:last-child { border-bottom: none; }
+  .lead-row:hover { background: rgba(99,153,34,0.06); }
+
+  .name { font-weight: 500; font-size: 14px; }
+  .addr { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+
+  .stars-cell { font-size: 15px; letter-spacing: 1px; white-space: nowrap; }
+  .stars-cell .on { color: var(--star-fill); }
+  .stars-cell .off { color: var(--border); }
+  .rank-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .phone { font-variant-numeric: tabular-nums; font-size: 13px; }
+  .web-link { color: var(--blue-400); text-decoration: none; font-size: 12px; }
+  .no-web { color: var(--text-muted); font-size: 12px; }
+  .rating-cell { font-size: 12px; color: var(--text-muted); }
+
+  .call-btn {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 500;
+    width: 100%;
+  }
+  .call-btn.called {
+    background: var(--green-50);
+    border-color: var(--green-400);
+    color: var(--green-800);
+  }
+  [data-mode="dark"] .call-btn.called { background: rgba(99,153,34,0.18); color: #A9DB5E; }
+
+  .empty {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--text-muted);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  /* ---- Calendar view ---- */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  .cal-nav { display: flex; align-items: center; gap: 10px; }
+  .cal-nav button {
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .cal-month-label { font-size: 16px; font-weight: 600; min-width: 150px; text-align: center; }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cal-weekday {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    text-transform: uppercase;
+    padding-bottom: 6px;
+  }
+  .cal-day {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-height: 80px;
+    padding: 6px;
+    cursor: pointer;
+    position: relative;
+  }
+  .cal-day:hover { border-color: var(--green-400); }
+  .cal-day.other-month { opacity: 0.35; }
+  .cal-day.today { border-color: var(--green-600); border-width: 2px; }
+  .cal-day-num { font-size: 12px; font-weight: 500; }
+  .cal-meeting {
+    margin-top: 4px;
+    background: var(--green-50);
+    color: var(--green-800);
+    border-radius: 5px;
+    padding: 2px 5px;
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  [data-mode="dark"] .cal-meeting { background: rgba(99,153,34,0.25); color: #A9DB5E; }
+  .cal-meeting-more { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .modal-box h3 { margin: 0 0 14px; font-size: 16px; }
+  .modal-field { margin-bottom: 12px; }
+  .modal-field label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .modal-field input, .modal-field textarea { width: 100%; }
+  .modal-actions { display: flex; justify-content: space-between; margin-top: 16px; gap: 8px; }
+  .existing-meetings { margin-bottom: 14px; }
+  .existing-meeting {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .existing-meeting .info { flex: 1; }
+  .existing-meeting .time { font-weight: 600; color: var(--green-600); }
+  [data-mode="dark"] .existing-meeting .time { color: #7BD34A; }
+  .existing-meeting .del { cursor: pointer; color: var(--text-muted); font-size: 12px; border: none; background: none; }
+  .existing-meeting .del:hover { color: #E24B4A; }
+
+  @media (max-width: 800px) {
+    .header-row { display: none; }
+    .lead-row { grid-template-columns: 1fr; gap: 6px; }
+    .rank-breakdown { grid-template-columns: repeat(3, 1fr); }
+    .cal-day { min-height: 56px; }
+    .cal-meeting { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="top-left">
+      <h1>Jompas dashboard</h1>
+      <a class="nav-link" id="navToLeads">Leads</a>
+      <a class="nav-link" id="navToCalendar">Gå till kalender -&gt;</a>
+    </div>
+    <div class="mode-toggle">
+      <button id="lightBtn">Ljust</button>
+      <button id="darkBtn">Mörkt</button>
+    </div>
+  </div>
+  <p class="sub" id="subText">Ladda upp CSV-filer med leads. Nya uppladdningar läggs till - du tappar aldrig tidigare städer.</p>
+
+  <!-- LEADS VIEW -->
+  <div class="view active" id="leadsView">
+
+    <p class="section-title">Översikt</p>
+    <div class="stats" id="stats"></div>
+
+    <div class="rank-breakdown" id="rankBreakdown"></div>
+
+    <div class="quota-box">
+      <div class="quota-info">
+        <div class="quota-label">Uppskattad API-kvota använd denna månad</div>
+        <div class="quota-numbers" id="quotaNumbers">0 / 5000 anrop</div>
+        <div class="quota-track"><div class="quota-fill" id="quotaFill" style="width:0%"></div></div>
+      </div>
+      <div class="quota-edit">
+        Månadstak:
+        <input type="number" id="quotaLimit" value="5000">
+        <button class="clear-btn" id="resetQuotaBtn">Nollställ (ny månad)</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <label class="drop" id="dropLabel">Lägg till CSV
+        <input type="file" id="fileInput" accept=".csv">
+      </label>
+      <input type="text" id="search" placeholder="Sök namn eller adress...">
+      <select id="rankFilter">
+        <option value="">Alla stjärnor</option>
+        <option value="5">5 stjärnor</option>
+        <option value="4">4 stjärnor</option>
+        <option value="3">3 stjärnor</option>
+      </select>
+      <select id="calledFilter">
+        <option value="">Alla</option>
+        <option value="no">Ej ringda</option>
+        <option value="yes">Ringda</option>
+      </select>
+      <button class="clear-btn" id="clearBtn">Rensa allt</button>
+    </div>
+
+    <div id="tableWrap">
+      <div class="empty">Ladda upp en CSV-fil för att komma igång.</div>
+    </div>
+  </div>
+
+  <!-- CALENDAR VIEW -->
+  <div class="view" id="calendarView">
+    <div class="cal-header">
+      <div class="cal-nav">
+        <button id="prevMonthBtn">&larr;</button>
+        <div class="cal-month-label" id="calMonthLabel"></div>
+        <button id="nextMonthBtn">&rarr;</button>
+      </div>
+      <button class="primary-btn" id="todayBtn">Idag</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+</div>
+
+<!-- Meeting modal -->
+<div class="modal-overlay" id="meetingModal">
+  <div class="modal-box">
+    <h3 id="modalDateLabel">Möten</h3>
+    <div class="existing-meetings" id="existingMeetings"></div>
+    <div class="modal-field">
+      <label>Tid</label>
+      <input type="time" id="meetingTime" value="10:00">
+    </div>
+    <div class="modal-field">
+      <label>Företag / person</label>
+      <input type="text" id="meetingCompany" placeholder="t.ex. Salong Kvarteret">
+    </div>
+    <div class="modal-field">
+      <label>Anteckning</label>
+      <textarea id="meetingNote" rows="2" placeholder="valfritt"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="clear-btn" id="closeModalBtn">Stäng</button>
+      <button class="primary-btn" id="saveMeetingBtn">Lägg till möte</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LEADS_KEY = 'jompas_dashboard_leads';
+const STATUS_KEY = 'jompas_dashboard_status';
+const MODE_KEY = 'jompas_dashboard_mode';
+const QUOTA_USED_KEY = 'jompas_dashboard_quota_used';
+const QUOTA_LIMIT_KEY = 'jompas_dashboard_quota_limit';
+const MEETINGS_KEY = 'jompas_dashboard_meetings';
+
+let rows = JSON.parse(localStorage.getItem(LEADS_KEY) || '[]');
+let statusMap = JSON.parse(localStorage.getItem(STATUS_KEY) || '{}');
+let meetings = JSON.parse(localStorage.getItem(MEETINGS_KEY) || '{}'); // { "2026-07-22": [{time, company, note}] }
+let calViewDate = new Date();
+let selectedDateKey = null;
+
+function keyFor(row) { return (row.Telefon || row.Namn || '').trim(); }
+
+function starsFor(row) {
+  const rank = (row['Auto-ranking'] || '').trim();
+  if (rank.startsWith('5')) return 5;
+  if (rank.startsWith('4')) return 4;
+  if (rank.startsWith('3')) return 3;
+  return 3;
+}
+
+function starHtml(n) {
+  let out = '';
+  for (let i = 1; i <= 5; i++) {
+    out += '<span class="' + (i <= n ? 'on' : 'off') + '">★</span>';
+  }
+  return out;
+}
+
+function saveLeads() { localStorage.setItem(LEADS_KEY, JSON.stringify(rows)); }
+function saveStatus() { localStorage.setItem(STATUS_KEY, JSON.stringify(statusMap)); }
+function saveMode(mode) { localStorage.setItem(MODE_KEY, mode); }
+function saveMeetings() { localStorage.setItem(MEETINGS_KEY, JSON.stringify(meetings)); }
+
+function applyMode(mode) {
+  document.documentElement.setAttribute('data-mode', mode);
+  document.getElementById('lightBtn').classList.toggle('active', mode === 'light');
+  document.getElementById('darkBtn').classList.toggle('active', mode === 'dark');
+}
+
+function mergeRows(newRows) {
+  const existingKeys = new Set(rows.map(keyFor));
+  const added = newRows.filter(function(r) { return !existingKeys.has(keyFor(r)); });
+  rows = rows.concat(added);
+  saveLeads();
+  return added.length;
+}
+
+function estimateQuotaUsed() {
+  const manualUsed = parseInt(localStorage.getItem(QUOTA_USED_KEY) || '0');
+  const estimatedFromLeads = rows.length * 2;
+  return manualUsed + estimatedFromLeads;
+}
+
+function renderQuota() {
+  const limit = parseInt(localStorage.getItem(QUOTA_LIMIT_KEY) || '5000');
+  document.getElementById('quotaLimit').value = limit;
+  const used = estimateQuotaUsed();
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  document.getElementById('quotaNumbers').textContent = used.toLocaleString('sv-SE') + ' / ' + limit.toLocaleString('sv-SE') + ' anrop (' + pct + '%)';
+  const fill = document.getElementById('quotaFill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct > 90 ? '#E24B4A' : pct > 70 ? '#BA7517' : 'var(--green-400)';
+}
+
+function render() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const rankF = document.getElementById('rankFilter').value;
+  const calledF = document.getElementById('calledFilter').value;
+
+  let filtered = rows.filter(function(r) {
+    const text = ((r.Namn||'') + ' ' + (r.Adress||'')).toLowerCase();
+    if (search && !text.includes(search)) return false;
+    if (rankF && starsFor(r) !== parseInt(rankF)) return false;
+    const called = !!statusMap[keyFor(r)];
+    if (calledF === 'yes' && !called) return false;
+    if (calledF === 'no' && called) return false;
+    return true;
+  });
+
+  const total = rows.length;
+  const noWebsite = rows.filter(function(r) { return (r.Hemsida||'').trim() === 'SAKNAS'; }).length;
+  const calledCount = rows.filter(function(r) { return statusMap[keyFor(r)]; }).length;
+
+  document.getElementById('stats').innerHTML = total ? (
+    '<div class="stat"><div class="n">' + total + '</div><div class="l">totalt hittade</div></div>' +
+    '<div class="stat"><div class="n">' + noWebsite + '</div><div class="l">ingen hemsida</div></div>' +
+    '<div class="stat"><div class="n">' + calledCount + '</div><div class="l">ringda</div></div>' +
+    '<div class="stat"><div class="n">' + filtered.length + '</div><div class="l">visas nu</div></div>'
+  ) : '<div class="stat"><div class="n">0</div><div class="l">totalt hittade</div></div>';
+
+  const counts = {5:0,4:0,3:0,2:0,1:0};
+  rows.forEach(function(r) { counts[starsFor(r)] = (counts[starsFor(r)] || 0) + 1; });
+  const maxCount = Math.max(1, total);
+  let breakdownHtml = '';
+  [5,4,3,2,1].forEach(function(n) {
+    const c = counts[n] || 0;
+    const pct = Math.round((c / maxCount) * 100);
+    breakdownHtml += '<div class="rank-card">' +
+      '<div class="stars">' + starHtml(n) + '</div>' +
+      '<div class="count">' + c + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+    '</div>';
+  });
+  document.getElementById('rankBreakdown').innerHTML = breakdownHtml;
+
+  renderQuota();
+
+  if (!rows.length) {
+    document.getElementById('tableWrap').innerHTML =
+      '<div class="empty">Ladda upp en CSV-fil för att komma igång.</div>';
+    return;
+  }
+
+  const headerRow =
+    '<div class="header-row">' +
+      '<div>Företag</div><div>Ranking</div><div>Telefon</div>' +
+      '<div>Hemsida</div><div>Betyg</div><div>Status</div>' +
+    '</div>';
+
+  const bodyRows = filtered.map(function(r) {
+    const called = !!statusMap[keyFor(r)];
+    const phone = (r.Telefon || 'saknas').trim();
+    const website = (r.Hemsida || '').trim();
+    const stars = starsFor(r);
+    return '<div class="lead-row">' +
+      '<div><div class="name">' + (r.Namn || '') + '</div><div class="addr">' + (r.Adress || '') + '</div></div>' +
+      '<div><div class="stars-cell">' + starHtml(stars) + '</div><div class="rank-label">' + (stars === 5 ? 'ingen hemsida' : 'har hemsida') + '</div></div>' +
+      '<div class="phone">' + phone + '</div>' +
+      '<div>' + (website && website !== 'SAKNAS' ? '<a class="web-link" href="' + website + '" target="_blank" rel="noopener">Besök länk</a>' : '<span class="no-web">saknas</span>') + '</div>' +
+      '<div class="rating-cell">' + (r['Betyg'] || '-') + (r['Antal recensioner'] ? ' (' + r['Antal recensioner'] + ')' : '') + '</div>' +
+      '<div><button class="call-btn ' + (called ? 'called' : '') + '" data-key="' + keyFor(r) + '">' + (called ? 'Ringd' : 'Markera ringd') + '</button></div>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('tableWrap').innerHTML = headerRow + '<div class="lead-list">' + bodyRows + '</div>';
+
+  document.querySelectorAll('.call-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const k = btn.getAttribute('data-key');
+      statusMap[k] = !statusMap[k];
+      saveStatus();
+      render();
+    });
+  });
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: function(results) {
+      mergeRows(results.data);
+      render();
+      e.target.value = '';
+    }
+  });
+});
+
+document.getElementById('clearBtn').addEventListener('click', function() {
+  if (confirm('Rensa all sparad leaddata? Det går inte att ångra.')) {
+    rows = [];
+    statusMap = {};
+    saveLeads();
+    saveStatus();
+    render();
+  }
+});
+
+document.getElementById('quotaLimit').addEventListener('change', function(e) {
+  localStorage.setItem(QUOTA_LIMIT_KEY, e.target.value || '5000');
+  renderQuota();
+});
+
+document.getElementById('resetQuotaBtn').addEventListener('click', function() {
+  if (confirm('Nollställ kvotberäkningen för en ny månad?')) {
+    localStorage.setItem(QUOTA_USED_KEY, '0');
+    rows = [];
+    saveLeads();
+    render();
+  }
+});
+
+['search','rankFilter','calledFilter'].forEach(function(id) {
+  document.getElementById(id).addEventListener('input', render);
+});
+
+document.getElementById('lightBtn').addEventListener('click', function() { applyMode('light'); saveMode('light'); });
+document.getElementById('darkBtn').addEventListener('click', function() { applyMode('dark'); saveMode('dark'); });
+
+/* ---------------- View switching ---------------- */
+function showView(view) {
+  document.getElementById('leadsView').classList.toggle('active', view === 'leads');
+  document.getElementById('calendarView').classList.toggle('active', view === 'calendar');
+  document.getElementById('subText').textContent = view === 'leads'
+    ? 'Ladda upp CSV-filer med leads. Nya uppladdningar läggs till - du tappar aldrig tidigare städer.'
+    : 'Bokade möten med leads. Klicka på ett datum för att lägga till eller se möten.';
+  if (view === 'calendar') renderCalendar();
+}
+document.getElementById('navToLeads').addEventListener('click', function() { showView('leads'); });
+document.getElementById('navToCalendar').addEventListener('click', function() { showView('calendar'); });
+
+/* ---------------- Calendar ---------------- */
+const MONTH_NAMES = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
+const WEEKDAYS = ['Mån','Tis','Ons','Tor','Fre','Lör','Sön'];
+
+function dateKey(y, m, d) {
+  return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+
+function renderCalendar() {
+  const year = calViewDate.getFullYear();
+  const month = calViewDate.getMonth();
+  document.getElementById('calMonthLabel').textContent = MONTH_NAMES[month] + ' ' + year;
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  WEEKDAYS.forEach(function(wd) {
+    const el = document.createElement('div');
+    el.className = 'cal-weekday';
+    el.textContent = wd;
+    grid.appendChild(el);
+  });
+
+  const firstOfMonth = new Date(year, month, 1);
+  let startWeekday = firstOfMonth.getDay(); // 0=Sun
+  startWeekday = startWeekday === 0 ? 6 : startWeekday - 1; // convert to Mon=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  const today = new Date();
+  const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const totalCells = Math.ceil((startWeekday + daysInMonth) / 7) * 7;
+  for (let i = 0; i < totalCells; i++) {
+    const dayNum = i - startWeekday + 1;
+    let cellYear = year, cellMonth = month, cellDay, otherMonth = false;
+    if (dayNum < 1) {
+      cellDay = daysInPrevMonth + dayNum;
+      cellMonth = month - 1;
+      otherMonth = true;
+    } else if (dayNum > daysInMonth) {
+      cellDay = dayNum - daysInMonth;
+      cellMonth = month + 1;
+      otherMonth = true;
+    } else {
+      cellDay = dayNum;
+    }
+    const normDate = new Date(cellYear, cellMonth, cellDay);
+    const key = dateKey(normDate.getFullYear(), normDate.getMonth(), normDate.getDate());
+
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (otherMonth ? ' other-month' : '') + (key === todayKey ? ' today' : '');
+    cell.setAttribute('data-key', key);
+
+    let html = '<div class="cal-day-num">' + cellDay + '</div>';
+    const dayMeetings = (meetings[key] || []).slice().sort(function(a,b){ return a.time.localeCompare(b.time); });
+    dayMeetings.slice(0, 2).forEach(function(m) {
+      html += '<div class="cal-meeting">' + m.time + ' ' + escapeHtml(m.company) + '</div>';
+    });
+    if (dayMeetings.length > 2) {
+      html += '<div class="cal-meeting-more">+' + (dayMeetings.length - 2) + ' till</div>';
+    }
+    cell.innerHTML = html;
+    cell.addEventListener('click', function() { openMeetingModal(key); });
+    grid.appendChild(cell);
+  }
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s || '';
+  return div.innerHTML;
+}
+
+document.getElementById('prevMonthBtn').addEventListener('click', function() {
+  calViewDate.setMonth(calViewDate.getMonth() - 1);
+  renderCalendar();
+});
+document.getElementById('nextMonthBtn').addEventListener('click', function() {
+  calViewDate.setMonth(calViewDate.getMonth() + 1);
+  renderCalendar();
+});
+document.getElementById('todayBtn').addEventListener('click', function() {
+  calViewDate = new Date();
+  renderCalendar();
+});
+
+function openMeetingModal(key) {
+  selectedDateKey = key;
+  const parts = key.split('-');
+  const label = parts[2] + ' ' + MONTH_NAMES[parseInt(parts[1]) - 1] + ' ' + parts[0];
+  document.getElementById('modalDateLabel').textContent = 'Möten - ' + label;
+  document.getElementById('meetingCompany').value = '';
+  document.getElementById('meetingNote').value = '';
+  document.getElementById('meetingTime').value = '10:00';
+  renderExistingMeetings();
+  document.getElementById('meetingModal').classList.add('active');
+}
+
+function renderExistingMeetings() {
+  const list = (meetings[selectedDateKey] || []).slice().sort(function(a,b){ return a.time.localeCompare(b.time); });
+  const container = document.getElementById('existingMeetings');
+  if (!list.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Inga möten inbokade denna dag.</div>';
+    return;
+  }
+  container.innerHTML = list.map(function(m, idx) {
+    return '<div class="existing-meeting">' +
+      '<div class="info"><span class="time">' + m.time + '</span> - ' + escapeHtml(m.company) + (m.note ? '<br><span style="color:var(--text-muted);font-size:12px;">' + escapeHtml(m.note) + '</span>' : '') + '</div>' +
+      '<button class="del" data-idx="' + idx + '">Ta bort</button>' +
+    '</div>';
+  }).join('');
+  container.querySelectorAll('.del').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const idx = parseInt(btn.getAttribute('data-idx'));
+      const sorted = (meetings[selectedDateKey] || []).slice().sort(function(a,b){ return a.time.localeCompare(b.time); });
+      const toRemove = sorted[idx];
+      meetings[selectedDateKey] = meetings[selectedDateKey].filter(function(m) { return m !== toRemove; });
+      saveMeetings();
+      renderExistingMeetings();
+      renderCalendar();
+    });
+  });
+}
+
+document.getElementById('saveMeetingBtn').addEventListener('click', function() {
+  const company = document.getElementById('meetingCompany').value.trim();
+  if (!company) { alert('Ange företag/person för mötet.'); return; }
+  const time = document.getElementById('meetingTime').value || '00:00';
+  const note = document.getElementById('meetingNote').value.trim();
+  if (!meetings[selectedDateKey]) meetings[selectedDateKey] = [];
+  meetings[selectedDateKey].push({ time: time, company: company, note: note });
+  saveMeetings();
+  document.getElementById('meetingCompany').value = '';
+  document.getElementById('meetingNote').value = '';
+  renderExistingMeetings();
+  renderCalendar();
+});
+
+document.getElementById('closeModalBtn').addEventListener('click', function() {
+  document.getElementById('meetingModal').classList.remove('active');
+});
+document.getElementById('meetingModal').addEventListener('click', function(e) {
+  if (e.target === document.getElementById('meetingModal')) {
+    document.getElementById('meetingModal').classList.remove('active');
+  }
+});
+
+applyMode(localStorage.getItem(MODE_KEY) || 'light');
+render();
+</script>
+</body>
+</html>
